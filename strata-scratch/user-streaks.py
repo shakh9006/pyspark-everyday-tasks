@@ -11,40 +11,33 @@ the platform as of August 10, 2022. Output the user ID and the length of the str
 In case of a tie, display all users with the top three longest streaks.
 """
 
-
 import pyspark
 import pyspark.sql.functions as F
 from pyspark.sql import Window
+
+w = Window.partitionBy(F.col("user_id")).orderBy("visit_date")
 
 user_streaks = (
     user_streaks
     .filter(F.col("date_visited") <= '2022-08-10')
     .distinct()
-    .orderBy(F.col("user_id"), F.col("date_visited"))
     .withColumn("visit_date", F.to_date("date_visited"))
+    .withColumn("rn", F.rank().over(w))
+    .withColumn("group_date", F.date_sub(F.col("visit_date"), F.col("rn")))
+    .groupBy(F.col("user_id"), F.col("group_date"))
+    .agg(
+        F.count(F.col("visit_date")).alias("dq")
+    )
 )
-
-w = Window.partitionBy(F.col("user_id")).orderBy(F.col("visit_date"))
 
 user_streaks = (
     user_streaks
-    .withColumn("prev_date", F.lag(F.col("visit_date")).over(w))
-    .withColumn(
-        "is_new_streak",
-        F.when(
-            (F.col("prev_date").isNull()) |
-            (F.datediff("visit_date", "prev_date") != 1),
-            1
-        ).otherwise(0)
+    .groupBy(F.col("user_id"))
+    .agg(
+        F.max(F.col("dq")).alias("dq")
     )
-    .withColumn("streak_id", F.sum("is_new_streak").over(w))
-    # .withColumn("rn", F.dense_rank().over(w2))
+    .filter(F.col("dq") > 2)
+    .orderBy(F.col("dq").desc(), F.col("dq"))
 )
 
-streaks = (
-    user_streaks.groupBy("user_id", "streak_id")
-        .agg(F.count("*").alias("streak_length"))
-)
-
-
-streaks.toPandas()
+user_streaks.toPandas()
