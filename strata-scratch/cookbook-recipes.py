@@ -37,25 +37,40 @@ Page 0 (the inside cover) is always empty and included in the output. Only inclu
 import pyspark
 import pyspark.sql.functions as F
 
-left_pages = (
+pages = (
     cookbook_titles
-    .filter(F.col("page_number") % 2 == 0)
-    .withColumn("right_page_number", F.col("page_number") + 1)
+    .withColumn(
+        "page",
+        F.when(F.col("page_number") % 2 == 0, F.col("page_number"))
+        .otherwise(F.col("page_number") - 1)
+    )
+    .select("page")
+    .dropDuplicates()
+    .orderBy("page")
 )
 
-cookbook_titles.show()
 
 result = (
-    left_pages
-    .alias("l")
+    pages
+    .alias("p")
+    .join(
+        cookbook_titles
+        .alias("l"),
+        on=F.col("p.page") == F.col("l.page_number"),
+        how="left"
+    )
     .join(
         cookbook_titles
         .alias("r"),
-        on=F.col("l.right_page_number") == F.col("r.page_number"),
+        on=F.col("p.page") + 1 == F.col("r.page_number"),
         how="left"
     )
+    .select(
+        F.col("page").alias("left_page_number"),
+        F.col("l.title").alias("left_title"),
+        F.col("r.title").alias("right_title")
+    )
+    .orderBy("left_page_number")
 )
 
 result.toPandas()
-
-# left_page_number	left_title	right_title
