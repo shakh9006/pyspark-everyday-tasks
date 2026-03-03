@@ -1,0 +1,58 @@
+# Source: https://platform.stratascratch.com/coding/2053-retention-rate?code_type=6
+
+# Title: Retention Rate
+
+"""
+You are given a dataset that tracks user activity.
+The dataset includes information about the date of user activity, the account_id associated with the activity,
+and the user_id of the user performing the activity.
+Each row in the dataset represents a user’s activity on a specific date for a particular account_id.
+
+
+Your task is to calculate the monthly retention rate for users for each account_id for December 2020 and January 2021.
+The retention rate is defined as the percentage of users active in a given month who have activity in any future month.
+
+
+For instance, a user is considered retained for December 2020 if they have activity in December 2020 and any
+subsequent month (e.g., January 2021 or later). Similarly, a user is retained for January 2021
+if they have activity in January 2021 and any later month (e.g., February 2021 or later).
+
+
+The final output should include the account_id and the ratio of the retention rate
+in January 2021 to the retention rate in December 2020 for each account_id.
+If there are no users retained in December 2020, the retention rate ratio should be set to 0.
+"""
+
+
+import pyspark
+import pyspark.sql.functions as F
+
+rows = (
+    sf_events
+    .filter(F.col("record_date") >= '2020-12-01')
+    .withColumn("period", F.date_format("record_date", "MM-yyyy"))
+)
+
+december_retention = (
+    rows.filter(F.col("period") == "12-2020")
+)
+january_retention = rows.filter(F.col("period") == "01-2021")
+other_retention = rows.filter(~F.col("period").isin("12-2020", "01-2021"))
+
+unique_rows = (
+    rows
+    .select("account_id")
+    .distinct()
+)
+
+result = (
+    unique_rows
+    .alias("u")
+    .join(
+        december_retention
+        .alias("d"),
+        on=(F.col("u.account_id") == F.col("d.account_id")) & ()
+    )
+)
+
+unique_rows.toPandas()
