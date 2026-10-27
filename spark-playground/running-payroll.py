@@ -21,9 +21,9 @@ spark = SparkSession.builder.appName('Spark Playground').getOrCreate()
 
 payroll = (
   payroll.withColumn(
-    "pay", 
+    "pay",  
     F.when(F.col("hours_worked") <= 40.0, F.col("hours_worked") * F.col("hourly_rate"))
-      .otherwise((40.0 * F.col("hourly_rate")) + ((F.col("hours_worked") - 40) * (F.col("hourly_rate") * 1.5)))
+    .otherwise((40.0 * F.col("hourly_rate")) + ((F.col("hours_worked") - 40) * (F.col("hourly_rate") * 1.5)))
   )
 )
 
